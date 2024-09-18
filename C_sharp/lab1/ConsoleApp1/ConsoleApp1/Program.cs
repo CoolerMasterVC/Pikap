@@ -14,7 +14,6 @@ namespace Squed
                 a = Convert.ToDouble(args[0]);
                 b = Convert.ToDouble(args[1]);
                 c = Convert.ToDouble(args[2]);
-                D = b * b - 4 * a * c;
             }
             else
             {
@@ -63,16 +62,15 @@ namespace Squed
             }
 
             D = b * b - 4 * a * c;
-            // определение наличия, количества и самих корней квадратного уравнения
+
             if (D < 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Уравнение не имеет действительных корней");
+                Console.WriteLine("Нет действительных корней");
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Уравнение имеет следующие действительные корни: ");
 
 
                 if (D == 0)
