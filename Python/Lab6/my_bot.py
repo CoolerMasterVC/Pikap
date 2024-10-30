@@ -1,4 +1,4 @@
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message
 import json
@@ -31,6 +31,15 @@ def create_battle_server(player1, player2):
             }
             users_settings[player1]["battle_server_id"] = i
             users_settings[player2]["battle_server_id"] = i
+
+def create_buttons():
+    # markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # btn1 = types.KeyboardButton("Поиск противника")
+    # btn2 = types.KeyboardButton("Статус")
+    markup = [
+        [types.KeyboardButton(text="Поиск противника"), types.KeyboardButton(text="Статус")]]
+    markup = types.ReplyKeyboardMarkup(keyboard=markup,resize_keyboard=True)
+    return markup
 
 async def battling_players(player: str,text: str, id_server: int):
     
@@ -73,8 +82,8 @@ async def battling_players(player: str,text: str, id_server: int):
                 battle_servers[id_server][ans_player] = ans
                 if battle_servers[id_server][ans_player] != -1 and battle_servers[id_server][ans_enemy] != -1:
                     if battle_servers[id_server][ans_player] == battle_servers[id_server][number_enemy] and battle_servers[id_server][ans_enemy] == battle_servers[id_server][number_player]:
-                        await bot.send_message(player, "Вы оба победили.")
-                        await bot.send_message(enemy, "Вы оба победили.")
+                        await bot.send_message(player, "Вы оба победили.", reply_markup=create_buttons())
+                        await bot.send_message(enemy, "Вы оба победили.", reply_markup=create_buttons())
 
                         users_settings[player]["wins"]+=1
                         users_settings[enemy]["wins"]+=1
@@ -83,10 +92,11 @@ async def battling_players(player: str,text: str, id_server: int):
                         users_settings[enemy]["stasus"]="registrated"
 
                         del battle_servers[id_server]
+                        users_settings_change()
 
                     elif battle_servers[id_server][ans_player] == battle_servers[id_server][number_enemy]:
-                        await bot.send_message(player, "Вы победили.")
-                        await bot.send_message(enemy, "Вы проиграли.")
+                        await bot.send_message(player, "Вы победили.", reply_markup=create_buttons())
+                        await bot.send_message(enemy, "Вы проиграли.", reply_markup=create_buttons())
 
                         users_settings[player]["wins"]+=1
                         users_settings[enemy]["loses"]+=1
@@ -94,11 +104,12 @@ async def battling_players(player: str,text: str, id_server: int):
                         users_settings[player]["status"]="registrated"
                         users_settings[enemy]["stasus"]="registrated"
 
+                        users_settings_change()
                         del battle_servers[id_server]
 
                     elif battle_servers[id_server][ans_enemy] == battle_servers[id_server][number_player]:
-                        await bot.send_message(player, "Вы проиграли.")
-                        await bot.send_message(enemy, "Вы победили.")
+                        await bot.send_message(player, "Вы проиграли.", reply_markup=create_buttons())
+                        await bot.send_message(enemy, "Вы победили.", reply_markup=create_buttons())
 
                         users_settings[player]["loses"]+=1
                         users_settings[enemy]["wins"]+=1
@@ -107,6 +118,7 @@ async def battling_players(player: str,text: str, id_server: int):
                         users_settings[enemy]["stasus"]="registrated"
 
                         del battle_servers[id_server]
+                        users_settings_change()
 
                     else:
                         await bot.send_message(player, "Вы оба не угадали. Игра продолжается.")
@@ -136,12 +148,17 @@ async def process_start_command(message: Message):
         }
         await message.answer(f"Добрый день.\nВведите своё имя.")
     else:
+        if users_settings[str(message.from_user.id)]["status"] == "battling":
+            return
         name = users_settings[str(message.from_user.id)]["name"]
-        await message.answer(f"Привет, {name}")
+        await message.answer(f"Привет, {name}", reply_markup=create_buttons())
+
 
 @dp.message(Command(commands=["battle"]))
 async def process_battle_command(message: Message):
     if str(message.from_user.id) in users_settings:
+        if users_settings[str(message.from_user.id)]["status"] == "battling":
+            return
         await message.answer("Начинается поиск. Чтобы отменить, напишите /cansel.")
 
         for user in users_settings:
@@ -150,8 +167,8 @@ async def process_battle_command(message: Message):
                 name1 = users_settings[str(message.from_user.id)]["name"]
                 name2 = users_settings[user]["name"]
 
-                await message.answer(f"Ваш противник: {name2}")
-                await bot.send_message(users_settings[user]["id"], f"Ваш противник: {name1}")
+                await message.answer(f"Ваш противник: {name2}. Загадайте число")
+                await bot.send_message(users_settings[user]["id"], f"Ваш противник: {name1}. Загадайте число")
                 
 
                 create_battle_server(str(user),str(message.from_user.id))
@@ -171,16 +188,18 @@ async def process_cancel_command(message: Message):
     if str(message.from_user.id) in users_settings:
         if users_settings[str(message.from_user.id)]["status"] == "searching":
             users_settings[str(message.from_user.id)]["status"] = "registrated"
-            await message.answer("Поиск отменён.")
+            await message.answer("Поиск отменён.", reply_markup=create_buttons())
 
 
 @dp.message(Command(commands=["status"]))
 async def process_status_command(message: Message):
     if str(message.from_user.id) in users_settings:
+        if users_settings[str(message.from_user.id)]["status"] == "battling":
+            return
         await message.answer(
             'Вот ваш статус:\n'
             f'побед: {users_settings[str(message.from_user.id)]["wins"]}\n'
-            f'поражений {users_settings[str(message.from_user.id)]["loses"]}'
+            f'поражений {users_settings[str(message.from_user.id)]["loses"]}', reply_markup=create_buttons()
         )
     else:
         await message.answer("Сначала напишите /start, чтобы пройти регистрацию.")
@@ -188,9 +207,10 @@ async def process_status_command(message: Message):
 # Этот хэндлер будет срабатывать на команду "/help"
 @dp.message(Command(commands=['help']))
 async def process_help_command(message: Message):
+    markup = create_buttons()
     await message.answer(
-        'Напиши мне что-нибудь и в ответ '
-        'я пришлю тебе твое сообщение'
+        "Нажмите на кнопку (Поиск противника), чтобы начать игру\n",
+        "Игроки должны выбрать число, которое хотят загадать. Потом они начинают пытаться отгадать число противника.", reply_markup=markup
     )
 
 
@@ -198,22 +218,37 @@ async def process_help_command(message: Message):
 # кроме команд "/start" и "/help"
 @dp.message()
 async def send_echo(message: Message):
-    #try:
+    try:
         if users_settings[str(message.from_user.id)]["status"] == "registrating":
             users_settings[str(message.from_user.id)]["name"] = message.text
             users_settings[str(message.from_user.id)]["status"] = "registrated"
-            await message.reply(text="Регистрация завершена")
-            users_settings_change()
 
-        elif users_settings[str(message.from_user.id)]["status"] == "battling":
-            id_server = users_settings[str(message.from_user.id)]["battle_server_id"]
-            await battling_players(str(message.from_user.id), message.text, id_server)
+            markup = create_buttons() 
+
+            await message.reply(text="Регистрация завершена", reply_markup=markup)
+            users_settings_change()
+    except:
+        await message.reply(text="Напишите /start, чтобы пройти регистрацию")
+        return
+
+
+    if users_settings[str(message.from_user.id)]["status"] == "battling":
+        id_server = users_settings[str(message.from_user.id)]["battle_server_id"]
+        await battling_players(str(message.from_user.id), message.text, id_server)
             #print(battle_servers[id_server])
             #print(users_settings)
 
-        else:
-            print(users_settings[str(message.from_user.id)]["status"])
-            name = users_settings[str(message.from_user.id)]["name"]
-            await message.reply(text=f"{name}: {message.text}")
-    #except:
-        await message.reply(text="Напишите /start, чтобы пройти регистрацию")
+    elif message.text == "Поиск противника" and users_settings[str(message.from_user.id)]["status"] != "battling":
+        await process_battle_command(message)
+    elif message.text == "Статус" and users_settings[str(message.from_user.id)]["status"] != "battling":
+            
+        await process_status_command(message)
+
+    else:
+        if users_settings[str(message.from_user.id)]["status"] == "battling":
+            return
+        print(users_settings[str(message.from_user.id)]["status"])
+        name = users_settings[str(message.from_user.id)]["name"]
+        markup = create_buttons()
+
+        await message.reply(text=f"{name}: {message.text}", reply_markup=markup)
